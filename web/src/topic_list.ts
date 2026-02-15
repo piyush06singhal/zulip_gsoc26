@@ -480,7 +480,71 @@ export function left_sidebar_scroll_zoomed_in_topic_into_view(): void {
             .find(".stream-list-subsection-header")
             .outerHeight(true) ?? 0;
     sticky_header_height += channel_folder_header_height;
-    scroll_util.scroll_element_into_container($selected_topic, $container, sticky_header_height);
+
+    // First, check if topic is visible
+    const topic_visible = scroll_util.is_element_fully_visible(
+        scroll_util.get_scroll_element($container),
+        $selected_topic,
+        sticky_header_height,
+    );
+
+    if (!topic_visible) {
+        // Topic not visible - scroll it into view (centered)
+        scroll_util.scroll_element_into_container($selected_topic, $container, sticky_header_height);
+    } else {
+        // Topic is visible - check if stream header is visible
+        const $stream_row = $selected_topic.closest(".narrow-filter");
+        if ($stream_row.length > 0) {
+            const $stream_header = $stream_row.find(".subscription_block");
+            if ($stream_header.length > 0) {
+                const stream_visible = scroll_util.is_element_fully_visible(
+                    scroll_util.get_scroll_element($container),
+                    $stream_header,
+                    sticky_header_height,
+                );
+
+                if (!stream_visible) {
+                    // Stream not visible but topic is - scroll minimally to show stream
+                    // while keeping topic visible
+                    const container_elem = scroll_util.get_scroll_element($container);
+                    const container_offset = container_elem.offset()?.top ?? 0;
+                    const container_scroll_top = container_elem.scrollTop() ?? 0;
+                    const container_height = (container_elem.height() ?? 0) - sticky_header_height;
+
+                    const stream_offset = $stream_header.offset()?.top ?? 0;
+                    const stream_top = stream_offset - container_offset - sticky_header_height;
+
+                    const topic_offset = $selected_topic.offset()?.top ?? 0;
+                    const topic_height = $selected_topic.outerHeight() ?? 0;
+                    const topic_top = topic_offset - container_offset - sticky_header_height;
+                    const topic_bottom = topic_top + topic_height;
+
+                    // Calculate minimal scroll to show stream while keeping topic visible
+                    let scroll_delta = 0;
+                    if (stream_top < 0) {
+                        // Stream is above viewport - scroll up to show it
+                        // But ensure topic stays visible after scroll
+                        const needed_scroll_up = -stream_top;
+                        // After scrolling up, topic will move down by scroll amount
+                        // New topic_bottom = topic_bottom + scroll_amount
+                        // We need: topic_bottom + scroll_amount <= container_height
+                        // So: scroll_amount <= container_height - topic_bottom
+                        const max_safe_scroll = container_height - topic_bottom;
+                        
+                        if (max_safe_scroll > 0) {
+                            // We can scroll up without hiding the topic
+                            scroll_delta = -Math.min(needed_scroll_up, max_safe_scroll);
+                        }
+                        // If max_safe_scroll <= 0, topic is at bottom edge, don't scroll
+                    }
+
+                    if (scroll_delta !== 0) {
+                        container_elem.scrollTop(container_scroll_top + scroll_delta);
+                    }
+                }
+            }
+        }
+    }
 }
 
 // For zooming, we only do topic-list stuff here...let stream_list

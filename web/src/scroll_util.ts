@@ -106,3 +106,22 @@ export function scroll_element_into_container(
 export function get_left_sidebar_scroll_container(): JQuery {
     return get_scroll_element($("#left_sidebar_scroll_container"));
 }
+
+export function is_element_fully_visible(
+    $container: JQuery,
+    $element: JQuery,
+    sticky_header_height = 0,
+): boolean {
+    // Check if element's top and bottom are both inside the container's visible viewport
+    const container_offset = $container.offset()?.top ?? 0;
+    const container_scroll_top = $container.scrollTop() ?? 0;
+    const container_height = ($container.height() ?? 0) - sticky_header_height;
+
+    const elem_offset = $element.offset()?.top ?? 0;
+    const elem_height = $element.outerHeight() ?? 0;
+
+    const elem_top = elem_offset - container_offset - sticky_header_height;
+    const elem_bottom = elem_top + elem_height;
+
+    return elem_top >= 0 && elem_bottom <= container_height;
+}
